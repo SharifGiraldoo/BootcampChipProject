@@ -1,65 +1,36 @@
-`timescale 1ns / 1ps
 /*
- * tt_um_alu7b.v — ALU de 7 bits, entrada serial LSB-first, salida paralela
+ * tt_um_alu7b.v — Interfaz TinyTapeout para la ALU serial→paralela de 7 bits
  *
  * Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * PROTOCOLO DE ENTRADA SERIAL (ui_in[0] = Bit_in):
+ * Módulo top-level que implementa la FSM de recepción serial e instancia
+ * el módulo combinacional alu_7b.
  *
- *   Posedge  1 ..  7  → Operando A [6:0], LSB primero
- *   Posedge  8 .. 14  → Operando B [6:0], LSB primero
- *   Posedge 15 .. 17  → Opcode   [2:0], LSB primero
+ * ─────────────────────────────────────────────────────────────────────────────
+ * PROTOCOLO DE ENTRADA SERIAL (ui_in[0] = Bit_in, LSB primero):
+ *
+ *   Posedge  1 ..  7  → Operando A [6:0]
+ *   Posedge  8 .. 14  → Operando B [6:0]
+ *   Posedge 15 .. 17  → Opcode   [2:0]
  *   Posedge 18        → FSM S_CALC: resultado en uo_out, Done=1 en uio_out[0]
  *
- * SHIFT-REGISTER LSB-FIRST CORRECTO (shift-right, nuevo bit en MSB):
+ * SHIFT-REGISTER LSB-FIRST (shift-right, bit nuevo en MSB):
  *   reg <= {bit_in, reg[N-1:1]}
  *   Tras N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
  *
- * TABLA DE OPERACIONES (op[2:0]):
- *   000 → Suma    result = A + B   (bit[7] = carry)
- *   001 → AND     result = A & B
- *   010 → OR      result = A | B
- *   011 → XOR     result = A ^ B
- *   100 → Resta   result = A - B   (bit[7] = borrow en complemento a 2)
- *
  * SALIDAS:
- *   uo_out[7:0]  — Resultado de 8 bits (paralelo)
+ *   uo_out[7:0]  — Resultado de 8 bits en paralelo
  *   uio_out[0]   — Done: pulso alto de exactamente 1 ciclo de reloj
  *
  * RESET:
- *   rst_n = 0 → estado inicial, bit_count = 0, registros = 0
+ *   rst_n = 0 → estado inicial, contadores y registros en cero
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
+`timescale 1ns / 1ps
 `default_nettype none
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Módulo 1: ALU combinacional de 7 bits
-// ─────────────────────────────────────────────────────────────────────────────
-module alu_7b (
-    input  wire [6:0] A,       // Operando A (7 bits)
-    input  wire [6:0] B,       // Operando B (7 bits)
-    input  wire [2:0] op,      // Código de operación
-    output reg  [7:0] result   // Resultado de 8 bits (incluye carry/borrow)
-);
-    always @(*) begin
-        case (op)
-            3'b000: result = {1'b0, A} + {1'b0, B};  // Suma  — bit[7] = carry
-            3'b001: result = {1'b0, A & B};            // AND
-            3'b010: result = {1'b0, A | B};            // OR
-            3'b011: result = {1'b0, A ^ B};            // XOR
-            3'b100: result = {1'b0, A} - {1'b0, B};   // Resta — bit[7] = borrow C2
-            default: result = 8'b0;
-        endcase
-    end
-endmodule
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Módulo 2 (top-level): Interfaz TinyTapeout para la ALU serial→paralela
-// ─────────────────────────────────────────────────────────────────────────────
 module tt_um_alu7b (
     input  wire [7:0] ui_in,    // Dedicated inputs  — ui_in[0] = Bit_in
     output wire [7:0] uo_out,   // Dedicated outputs — resultado[7:0]
@@ -92,7 +63,7 @@ module tt_um_alu7b (
 
     wire bit_in = ui_in[0];
 
-    // ─── Instancia ALU combinacional ──────────────────────────────────────────
+    // ─── Instancia del módulo combinacional alu_7b ────────────────────────────
     wire [7:0] alu_out;
     alu_7b u_alu (
         .A      (reg_A),
@@ -116,7 +87,7 @@ module tt_um_alu7b (
 
             case (state)
 
-                // ── S_RECV: Captura serial con shift-right LSB-first ─────────
+                // S_RECV: captura serial con shift-right LSB-first
                 // Bit nuevo entra en [MSB], corre hacia [LSB].
                 // Tras N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
                 S_RECV: begin
@@ -128,14 +99,13 @@ module tt_um_alu7b (
                         reg_op <= {bit_in, reg_op[2:1]};
 
                     if (bit_count == CNT_OP_END) begin
-                        // Último bit (índice 16) recibido → pasar a calcular
                         state     <= S_CALC;
                         bit_count <= 5'd0;
                     end else
                         bit_count <= bit_count + 5'd1;
                 end
 
-                // ── S_CALC: reg_A / reg_B / reg_op estables ──────────────────
+                // S_CALC: reg_A / reg_B / reg_op estables
                 // La ALU combinacional ya tiene el resultado correcto.
                 // Latchar resultado y generar pulso Done.
                 S_CALC: begin
@@ -144,7 +114,7 @@ module tt_um_alu7b (
                     state      <= S_DONE;
                 end
 
-                // ── S_DONE: Resultado estable en uo_out ──────────────────────
+                // S_DONE: resultado estable en uo_out.
                 // Espera rst_n=0 para iniciar una nueva operación.
                 S_DONE: state <= S_DONE;
 

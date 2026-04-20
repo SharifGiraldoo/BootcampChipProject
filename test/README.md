@@ -4,7 +4,7 @@ Banco de pruebas cocotb para la ALU de 7 bits con entrada serial.
 
 ## Configuración
 
-1. Verificar que `PROJECT_SOURCES` en `Makefile` apunte a `tt_um_alu7b.v`.
+1. Verificar que `PROJECT_SOURCES` en `Makefile` liste `project.v alu_7b.v tt_um_alu7b.v`.
 2. Verificar que el `TOPLEVEL` en `Makefile` sea `tb` y que `tb.v` instancie `tt_um_alu7b`.
 
 ## Ejecución

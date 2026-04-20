@@ -20,8 +20,10 @@ project:
   # El nombre del módulo top DEBE comenzar con "tt_um_"
   top_module: "tt_um_alu7b"
 
-  # ÚNICO archivo fuente — evita redeclaración de módulos en Yosys
+  # Archivos fuente del proyecto — actualizar también PROJECT_SOURCES en test/Makefile
   source_files:
+    - "project.v"
+    - "alu_7b.v"
     - "tt_um_alu7b.v"
 
 # Mapa de pines — completar todos los campos (no eliminar ni agregar pines)

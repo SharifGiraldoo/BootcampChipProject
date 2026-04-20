@@ -42,7 +42,9 @@ Posedge 18      → Resultado en uo_out, Done=1 en uio_out[0]
 ```
 myBootcampChip/
 ├── src/
-│   ├── tt_um_alu7b.v    ← Único archivo de diseño (alu_7b + tt_um_alu7b)
+│   ├── project.v        ← Archivo de integración (punto de entrada del flujo)
+│   ├── alu_7b.v         ← ALU combinacional de 7 bits (módulo funcional)
+│   ├── tt_um_alu7b.v    ← Top-level TinyTapeout con FSM serial→paralela
 │   └── config.json      ← Configuración LibreLane/OpenLane
 ├── test/
 │   ├── test.py          ← Banco de pruebas cocotb (15 casos)

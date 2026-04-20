@@ -2,7 +2,7 @@ name: fpga
 
 on:
   push:
-    # Comment out (or remove) the following line to run the FPGA workflow on every push:
+    # Comentar o eliminar la siguiente línea para ejecutar en cada push:
     branches: none
   workflow_dispatch:
 
@@ -10,8 +10,8 @@ jobs:
   fpga:
     runs-on: ubuntu-24.04
     steps:
-      - name: checkout repo
-        uses: actions/checkout@v6
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
