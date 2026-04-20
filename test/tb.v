@@ -1,49 +1,58 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-/* This testbench just instantiates the module and makes some convenient wires
-   that can be driven / tested by the cocotb test.py.
-*/
+/*
+ * tb.v — Testbench para tt_um_alu7b
+ *
+ * Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
+ *
+ * Instancia el módulo top-level tt_um_alu7b y expone las señales para
+ * que cocotb (test.py) las controle y verifique.
+ *
+ * Compatible con simulación RTL y Gate-Level (GATES=yes).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 module tb ();
 
-  // Dump the signals to a FST file. You can view it with gtkwave or surfer.
-  initial begin
-    $dumpfile("tb.fst");
-    $dumpvars(0, tb);
-    #1;
-  end
+    // ── Volcado de señales a archivo FST (GTKWave / Surfer) ──────────────────
+    initial begin
+        $dumpfile("tb.fst");
+        $dumpvars(0, tb);
+        #1;
+    end
 
-  // Wire up the inputs and outputs:
-  reg clk;
-  reg rst_n;
-  reg ena;
-  reg [7:0] ui_in;
-  reg [7:0] uio_in;
-  wire [7:0] uo_out;
-  wire [7:0] uio_out;
-  wire [7:0] uio_oe;
+    // ── Declaración de señales ────────────────────────────────────────────────
+    reg        clk;
+    reg        rst_n;
+    reg        ena;
+    reg  [7:0] ui_in;    // ui_in[0] = Bit_in (dato serial)
+    reg  [7:0] uio_in;   // No utilizado en este diseño
+
+    wire [7:0] uo_out;   // Data_out[7:0] — resultado paralelo
+    wire [7:0] uio_out;  // uio_out[0] = Done
+    wire [7:0] uio_oe;   // Dirección de los pines uio
+
 `ifdef GL_TEST
-  wire VPWR = 1'b1;
-  wire VGND = 1'b0;
+    wire VPWR = 1'b1;
+    wire VGND = 1'b0;
 `endif
 
-  // Replace tt_um_example with your module name:
-  tt_um_example user_project (
-
-      // Include power ports for the Gate Level test:
+    // ── Instancia del DUT (Device Under Test) ─────────────────────────────────
+    tt_um_alu7b user_project (
 `ifdef GL_TEST
-      .VPWR(VPWR),
-      .VGND(VGND),
+        .VPWR    (VPWR),
+        .VGND    (VGND),
 `endif
-
-      .ui_in  (ui_in),    // Dedicated inputs
-      .uo_out (uo_out),   // Dedicated outputs
-      .uio_in (uio_in),   // IOs: Input path
-      .uio_out(uio_out),  // IOs: Output path
-      .uio_oe (uio_oe),   // IOs: Enable path (active high: 0=input, 1=output)
-      .ena    (ena),      // enable - goes high when design is selected
-      .clk    (clk),      // clock
-      .rst_n  (rst_n)     // not reset
-  );
+        .ui_in   (ui_in),
+        .uo_out  (uo_out),
+        .uio_in  (uio_in),
+        .uio_out (uio_out),
+        .uio_oe  (uio_oe),
+        .ena     (ena),
+        .clk     (clk),
+        .rst_n   (rst_n)
+    );
 
 endmodule

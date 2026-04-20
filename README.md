@@ -1,42 +1,117 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# ALU de 7 bits — Entrada Serial / Salida Paralela
 
-- [Read the documentation for project](docs/info.md)
+**Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026**
+Shuttle: SKY26a · PDK: sky130A (130 nm) · Tile: 1×1
 
-## What is Tiny Tapeout?
+---
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+## Descripción del proyecto
 
-To learn more and get started, visit https://tinytapeout.com.
+Este proyecto implementa una **Unidad Aritmético-Lógica (ALU) de 7 bits** diseñada
+para fabricación real en silicio a través de la plataforma [TinyTapeout](https://tinytapeout.com).
 
-## Set up your Verilog project
+El sistema recibe dos operandos de 7 bits y un código de operación de 3 bits de
+forma **serial** (LSB-first) a través de un único pin de entrada, y entrega el
+resultado de 8 bits de forma **paralela** al finalizar el cómputo.
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+### Operaciones soportadas
 
-The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
+| op[2:0] | Operación | Descripción                          |
+|---------|-----------|--------------------------------------|
+| `000`   | Suma      | `result = A + B` (bit[7] = carry)    |
+| `001`   | AND       | `result = A & B`                     |
+| `010`   | OR        | `result = A \| B`                    |
+| `011`   | XOR       | `result = A ^ B`                     |
+| `100`   | Resta     | `result = A - B` (bit[7] = borrow)   |
 
-## Enable GitHub actions to build the results page
+### Protocolo de entrada serial
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+```
+Posedge  1.. 7  → Operando A [6:0], LSB primero
+Posedge  8..14  → Operando B [6:0], LSB primero
+Posedge 15..17  → Opcode [2:0],    LSB primero
+Posedge 18      → Resultado en uo_out, Done=1 en uio_out[0]
+```
 
-## Resources
+---
+
+## Estructura del repositorio
+
+```
+myBootcampChip/
+├── src/
+│   ├── tt_um_alu7b.v    ← Único archivo de diseño (alu_7b + tt_um_alu7b)
+│   └── config.json      ← Configuración LibreLane/OpenLane
+├── test/
+│   ├── test.py          ← Banco de pruebas cocotb (15 casos)
+│   ├── tb.v             ← Testbench Verilog
+│   ├── Makefile         ← Build RTL y Gate-Level
+│   ├── tb.gtkw          ← Configuración de señales GTKWave
+│   ├── requirements.txt ← Dependencias Python
+│   └── README.md        ← Instrucciones de simulación
+├── docs/
+│   └── info.md          ← Datasheet del proyecto
+├── .github/workflows/
+│   ├── gds.yaml         ← Flujo completo GDS + precheck + GL test + viewer
+│   ├── test.yaml        ← CI de pruebas RTL
+│   ├── docs.yaml        ← Generación de documentación
+│   └── fpga.yaml        ← Bitstream FPGA (ICE40UP5K)
+├── .devcontainer/
+│   ├── Dockerfile       ← Entorno con LibreLane, iverilog, cocotb
+│   ├── devcontainer.json
+│   └── copy_tt_support_tools.sh
+├── .vscode/
+│   ├── settings.json    ← Linting y formateo Verilog
+│   └── extensions.json  ← Extensiones recomendadas
+├── info.yaml            ← Metadatos del proyecto para TinyTapeout
+├── .gitignore
+├── LICENSE
+└── README.md            ← Este archivo
+```
+
+---
+
+## Configurar y ejecutar el proyecto
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/<tu-usuario>/myBootcampChip.git
+cd myBootcampChip
+```
+
+### 2. Ejecutar simulación RTL
+
+```bash
+cd test
+pip install -r requirements.txt
+make -B
+```
+
+### 3. Ver formas de onda
+
+```bash
+gtkwave tb.fst tb.gtkw
+```
+
+### 4. Síntesis con LibreLane (dentro del devcontainer o con IIC-OSIC-TOOLS)
+
+```bash
+cd src
+librelane config.json
+# Visualizar layout:
+librelane --last-run --flow OpenInKlayout config.json
+```
+
+---
+
+## Recursos TinyTapeout
 
 - [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
-
-## What next?
-
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+- [Lecciones de diseño digital](https://tinytapeout.com/digital_design/)
+- [Documentación de especificaciones](https://tinytapeout.com/specs)
+- [Shuttle SKY26a](https://app.tinytapeout.com/shuttles/ttsky26a)
+- [Comunidad Discord](https://tinytapeout.com/discord)
+- [Construir localmente](https://www.tinytapeout.com/guides/local-hardening/)

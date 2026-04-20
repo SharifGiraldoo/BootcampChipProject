@@ -1,47 +1,60 @@
-# Sample testbench for a Tiny Tapeout project
+# Banco de pruebas — tt_um_alu7b
 
-This is a sample testbench for a Tiny Tapeout project. It uses [cocotb](https://docs.cocotb.org/en/stable/) to drive the DUT and check the outputs.
-See below to get started or for more information, check the [website](https://tinytapeout.com/hdl/testing/).
+Banco de pruebas cocotb para la ALU de 7 bits con entrada serial.
 
-## Setting up
+## Configuración
 
-1. Edit [Makefile](Makefile) and modify `PROJECT_SOURCES` to point to your Verilog files.
-2. Edit [tb.v](tb.v) and replace `tt_um_example` with your module name.
+1. Verificar que `PROJECT_SOURCES` en `Makefile` apunte a `tt_um_alu7b.v`.
+2. Verificar que el `TOPLEVEL` en `Makefile` sea `tb` y que `tb.v` instancie `tt_um_alu7b`.
 
-## How to run
+## Ejecución
 
-To run the RTL simulation:
+### Simulación RTL
 
 ```sh
 make -B
 ```
 
-To run gatelevel simulation, first harden your project and copy `../runs/wokwi/results/final/verilog/gl/{your_module_name}.v` to `gate_level_netlist.v`.
+### Simulación Gate-Level
 
-Then run:
+Primero ejecutar el flujo completo de LibreLane/OpenLane para obtener el netlist
+sintetizado y copiarlo como `gate_level_netlist.v`:
 
 ```sh
+cp ../runs/<RUN_FOLDER>/final/pnl/tt_um_alu7b.pnl.v gate_level_netlist.v
 make -B GATES=yes
 ```
 
-If you wish to save the waveform in VCD format instead of FST format, edit tb.v to use `$dumpfile("tb.vcd");` and then run:
+### Guardar formas de onda en formato VCD (en lugar de FST)
+
+Editar `tb.v` para usar `$dumpfile("tb.vcd")` y ejecutar:
 
 ```sh
 make -B FST=
 ```
 
-This will generate `tb.vcd` instead of `tb.fst`.
+## Visualización de formas de onda
 
-## How to view the waveform file
-
-Using GTKWave
+Con GTKWave (carga la configuración de señales automáticamente):
 
 ```sh
 gtkwave tb.fst tb.gtkw
 ```
 
-Using Surfer
+Con Surfer:
 
 ```sh
 surfer tb.fst
 ```
+
+## Cobertura de pruebas
+
+El archivo `test.py` cubre las 5 operaciones de la ALU con 15 casos:
+
+| Operación | Casos | Escenarios cubiertos                      |
+|-----------|-------|-------------------------------------------|
+| ADD       | 5     | Normal, carry, cero, límite (127+1=128)   |
+| AND       | 3     | Máscara, identidad, cero                  |
+| OR        | 2     | Complemento, identidad                    |
+| XOR       | 2     | Diferencia, autocancelación (A^A=0)       |
+| SUB       | 3     | Normal, A=B, underflow (complemento a 2)  |

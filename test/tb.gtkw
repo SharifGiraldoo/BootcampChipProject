@@ -1,11 +1,8 @@
 [*]
-[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Mon Nov 20 16:00:28 2023
+[*] GTKWave Analyzer — tt_um_alu7b
+[*] Bootcamp IEEE OpenSilicon / IEEE CASS UTP 2026
 [*]
-[dumpfile] "/home/uri/p/tt-new-template-proto/test/tb.fst"
-[dumpfile_mtime] "Mon Nov 20 15:58:34 2023"
-[dumpfile_size] 1110
-[savefile] "/home/uri/p/tt-new-template-proto/test/tb.gtkw"
+[dumpfile] "tb.fst"
 [timestart] 0
 [size] 1376 600
 [pos] -1 -1
@@ -23,17 +20,26 @@ tb.user_project.clk
 tb.user_project.rst_n
 @200
 -Inputs
+@29
+tb.user_project.ui_in[0]
 @22
 tb.user_project.ui_in[7:0]
 @200
--Bidirectional Pins
+-FSM State
 @22
-tb.user_project.uio_in[7:0]
-tb.user_project.uio_oe[7:0]
-tb.user_project.uio_out[7:0]
+tb.user_project.state[1:0]
+tb.user_project.bit_count[4:0]
 @200
--Output Pins
+-Registros internos
+@22
+tb.user_project.reg_A[6:0]
+tb.user_project.reg_B[6:0]
+tb.user_project.reg_op[2:0]
+@200
+-Salidas
 @22
 tb.user_project.uo_out[7:0]
+@28
+tb.user_project.uio_out[0]
 [pattern_trace] 1
 [pattern_trace] 0

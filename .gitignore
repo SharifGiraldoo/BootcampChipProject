@@ -1,13 +1,34 @@
+# macOS
 .DS_Store
+
+# Editores
 .idea
+*.swp
+*.swo
+
+# Formas de onda (generadas por simulación — no versionar)
 *.vcd
 *.fst
 *.fst.hier
-runs
-tt_submission
+
+# Resultados de síntesis (generados por LibreLane — no versionar)
+runs/
+tt_submission/
+
+# Archivos de configuración generados automáticamente
 src/user_config.json
 src/config_merged.json
-test/sim_build
+
+# Directorio de build de cocotb
+test/sim_build/
+
+# Caché de Python
 test/__pycache__/
+__pycache__/
+*.pyc
+
+# Resultados de pruebas
 test/results.xml
+
+# Netlist Gate-Level (se copia manualmente para GL test; no versionar)
 test/gate_level_netlist.v

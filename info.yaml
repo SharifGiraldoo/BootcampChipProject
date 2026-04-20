@@ -1,29 +1,34 @@
 # Tiny Tapeout project information
+# Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
+# Shuttle: SKY26a  |  PDK: sky130A  |  Deadline envío: Abril 22, 2026
+
 project:
-  title:        ""      # Project title
-  author:       ""      # Your name
-  discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  ""      # One line description of what your project does
-  language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
-  clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
+  title:       "ALU 7 bits - Entrada Serial / Salida Paralela"
+  author:      "Bootcamp Diseño y Fabricación de Chips UTP 2026"
+  discord:     ""
+  description: >
+    ALU de 7 bits con entrada serial LSB-first y salida paralela de 8 bits.
+    Soporta Suma, AND, OR, XOR y Resta. Protocolo: 7 bits op_A + 7 bits op_B
+    + 3 bits opcode por flanco de CLK (17 ciclos en total). Señal Done en
+    uio[0] indica fin de operación.
+  language:    "Verilog"
+  clock_hz:    50000000   # 50 MHz — máximo garantizado por TinyTapeout IO
 
-  # How many tiles your design occupies? A single tile is about 167x108 uM.
-  tiles: "1x1"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
+  # Un tile mínimo (160 x 100 um) es suficiente para esta ALU
+  tiles: "1x1"
 
-  # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "tt_um_example"
+  # El nombre del módulo top DEBE comenzar con "tt_um_"
+  top_module: "tt_um_alu7b"
 
-  # List your project's source files here.
-  # Source files must be in ./src and you must list each source file separately, one per line.
-  # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
+  # ÚNICO archivo fuente — evita redeclaración de módulos en Yosys
   source_files:
-    - "project.v"
+    - "tt_um_alu7b.v"
 
-# The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
-# This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
+# Mapa de pines — completar todos los campos (no eliminar ni agregar pines)
 pinout:
-  # Inputs
-  ui[0]: ""
+
+  # ── Entradas dedicadas ────────────────────────────────────────────────────
+  ui[0]: "Bit_in — Dato serial de entrada (LSB primero: 7b A, 7b B, 3b op)"
   ui[1]: ""
   ui[2]: ""
   ui[3]: ""
@@ -32,18 +37,18 @@ pinout:
   ui[6]: ""
   ui[7]: ""
 
-  # Outputs
-  uo[0]: ""
-  uo[1]: ""
-  uo[2]: ""
-  uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
+  # ── Salidas dedicadas ─────────────────────────────────────────────────────
+  uo[0]: "Data_out[0] — Resultado bit 0 (LSB)"
+  uo[1]: "Data_out[1] — Resultado bit 1"
+  uo[2]: "Data_out[2] — Resultado bit 2"
+  uo[3]: "Data_out[3] — Resultado bit 3"
+  uo[4]: "Data_out[4] — Resultado bit 4"
+  uo[5]: "Data_out[5] — Resultado bit 5"
+  uo[6]: "Data_out[6] — Resultado bit 6 (MSB del operando)"
+  uo[7]: "Data_out[7] — Carry (suma) / Borrow (resta)"
 
-  # Bidirectional pins
-  uio[0]: ""
+  # ── Pines bidireccionales ─────────────────────────────────────────────────
+  uio[0]: "Done — Pulso alto (1 ciclo CLK) cuando la operación ha finalizado"
   uio[1]: ""
   uio[2]: ""
   uio[3]: ""
@@ -52,5 +57,5 @@ pinout:
   uio[6]: ""
   uio[7]: ""
 
-# Do not change!
+# No modificar
 yaml_version: 6
