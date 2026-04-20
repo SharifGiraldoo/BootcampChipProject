@@ -1,60 +1,60 @@
-# Banco de pruebas — tt_um_alu7b
+# Testbench — tt_um_alu7b
 
-Banco de pruebas cocotb para la ALU de 7 bits con entrada serial.
+cocotb testbench for the 7-bit serial-input ALU.
 
-## Configuración
+## Setup
 
-1. Verificar que `PROJECT_SOURCES` en `Makefile` liste `project.v alu_7b.v tt_um_alu7b.v`.
-2. Verificar que el `TOPLEVEL` en `Makefile` sea `tb` y que `tb.v` instancie `tt_um_alu7b`.
+1. Verify that `PROJECT_SOURCES` in `Makefile` lists `project.v alu_7b.v tt_um_alu7b.v`.
+2. Verify that `TOPLEVEL` in `Makefile` is `tb` and that `tb.v` instantiates `tt_um_alu7b` as `user_project`.
 
-## Ejecución
+## Running the tests
 
-### Simulación RTL
+### RTL simulation
 
 ```sh
+pip install -r requirements.txt
 make -B
 ```
 
-### Simulación Gate-Level
+### Gate-level simulation
 
-Primero ejecutar el flujo completo de LibreLane/OpenLane para obtener el netlist
-sintetizado y copiarlo como `gate_level_netlist.v`:
+First run the full LibreLane flow to obtain the synthesised netlist, then copy it:
 
 ```sh
 cp ../runs/<RUN_FOLDER>/final/pnl/tt_um_alu7b.pnl.v gate_level_netlist.v
 make -B GATES=yes
 ```
 
-### Guardar formas de onda en formato VCD (en lugar de FST)
+### Save waveforms in VCD format instead of FST
 
-Editar `tb.v` para usar `$dumpfile("tb.vcd")` y ejecutar:
+Edit `tb.v` to use `$dumpfile("tb.vcd")` and run:
 
 ```sh
 make -B FST=
 ```
 
-## Visualización de formas de onda
+## Viewing waveforms
 
-Con GTKWave (carga la configuración de señales automáticamente):
+With GTKWave (loads the signal configuration automatically):
 
 ```sh
 gtkwave tb.fst tb.gtkw
 ```
 
-Con Surfer:
+With Surfer:
 
 ```sh
 surfer tb.fst
 ```
 
-## Cobertura de pruebas
+## Test coverage
 
-El archivo `test.py` cubre las 5 operaciones de la ALU con 15 casos:
+`test.py` covers all 5 ALU operations with 15 test cases:
 
-| Operación | Casos | Escenarios cubiertos                      |
-|-----------|-------|-------------------------------------------|
-| ADD       | 5     | Normal, carry, cero, límite (127+1=128)   |
-| AND       | 3     | Máscara, identidad, cero                  |
-| OR        | 2     | Complemento, identidad                    |
-| XOR       | 2     | Diferencia, autocancelación (A^A=0)       |
-| SUB       | 3     | Normal, A=B, underflow (complemento a 2)  |
+| Operation | Cases | Scenarios covered                          |
+|-----------|-------|--------------------------------------------|
+| ADD       | 5     | Normal, carry (200), zero, limit (127+1)   |
+| AND       | 3     | Mask, identity, zero                       |
+| OR        | 2     | Complement, identity                       |
+| XOR       | 2     | Difference, self-cancellation (A^A=0)      |
+| SUB       | 3     | Normal, A=B (zero), underflow (two's comp) |

@@ -1,25 +1,23 @@
 /*
- * project.v — Archivo de integración del proyecto ALU 7 bits
+ * project.v — Project integration entry point
  *
- * Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
+ * Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026
  *
- * Este archivo es el punto de entrada del proyecto para el flujo de síntesis
- * de LibreLane. No contiene lógica propia; la funcionalidad está distribuida en:
+ * This file is the synthesis entry point for the LibreLane flow.
+ * It contains NO module logic. All functionality is implemented in:
  *
- *   alu_7b.v       — ALU combinacional de 7 bits (módulo funcional)
- *   tt_um_alu7b.v  — Top-level TinyTapeout con FSM serial→paralela
+ *   alu_7b.v       — 7-bit combinational ALU
+ *   tt_um_alu7b.v  — TinyTapeout top-level with serial→parallel FSM
  *
- * Todos los archivos se listan en info.yaml (source_files) y en test/Makefile
- * (PROJECT_SOURCES) para que tanto la síntesis como la simulación los procesen.
+ * Both files are listed in info.yaml (source_files) and in test/Makefile
+ * (PROJECT_SOURCES) so that synthesis and simulation compile them together.
  *
- * JERARQUÍA DE MÓDULOS:
+ * MODULE HIERARCHY:
  *
- *   tt_um_alu7b  (top-level, interfaz TinyTapeout)
- *       └── alu_7b  (instancia u_alu, lógica combinacional)
+ *   tt_um_alu7b  (top-level — TinyTapeout interface)
+ *       └── alu_7b  (instance u_alu — combinational logic)
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Este archivo es intencional y vacío de lógica.
-// Los módulos alu_7b y tt_um_alu7b están definidos en sus respectivos
-// archivos .v y son compilados en conjunto por el flujo de síntesis.
+// Intentionally empty — all modules are defined in their own .v files.

@@ -1,29 +1,29 @@
 /*
- * tt_um_alu7b.v — Interfaz TinyTapeout para la ALU serial→paralela de 7 bits
+ * tt_um_alu7b.v — TinyTapeout top-level for the 7-bit serial→parallel ALU
  *
- * Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
+ * Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026
  *
- * Módulo top-level que implementa la FSM de recepción serial e instancia
- * el módulo combinacional alu_7b.
+ * Implements the serial receive FSM and instantiates the combinational alu_7b
+ * module.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * PROTOCOLO DE ENTRADA SERIAL (ui_in[0] = Bit_in, LSB primero):
+ * 
+ * SERIAL INPUT PROTOCOL  (ui_in[0] = Bit_in, LSB first):
  *
- *   Posedge  1 ..  7  → Operando A [6:0]
- *   Posedge  8 .. 14  → Operando B [6:0]
- *   Posedge 15 .. 17  → Opcode   [2:0]
- *   Posedge 18        → FSM S_CALC: resultado en uo_out, Done=1 en uio_out[0]
+ *   Posedge  1 ..  7  → Operand A [6:0]
+ *   Posedge  8 .. 14  → Operand B [6:0]
+ *   Posedge 15 .. 17  → Opcode  [2:0]
+ *   Posedge 18        → FSM S_CALC: result latched in uo_out, Done=1 on uio_out[0]
  *
- * SHIFT-REGISTER LSB-FIRST (shift-right, bit nuevo en MSB):
+ * LSB-FIRST SHIFT REGISTER (shift-right, new bit enters at MSB):
  *   reg <= {bit_in, reg[N-1:1]}
- *   Tras N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
+ *   After N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
  *
- * SALIDAS:
- *   uo_out[7:0]  — Resultado de 8 bits en paralelo
- *   uio_out[0]   — Done: pulso alto de exactamente 1 ciclo de reloj
+ * OUTPUTS:
+ *   uo_out[7:0]  — 8-bit parallel result
+ *   uio_out[0]   — Done: one-cycle high pulse when result is ready
  *
  * RESET:
- *   rst_n = 0 → estado inicial, contadores y registros en cero
+ *   rst_n = 0 → synchronous reset to initial state; all registers cleared
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -32,27 +32,27 @@
 `default_nettype none
 
 module tt_um_alu7b (
-    input  wire [7:0] ui_in,    // Dedicated inputs  — ui_in[0] = Bit_in
-    output wire [7:0] uo_out,   // Dedicated outputs — resultado[7:0]
-    input  wire [7:0] uio_in,   // IOs: Input path   (no utilizado)
-    output wire [7:0] uio_out,  // IOs: Output path  — uio_out[0] = Done
-    output wire [7:0] uio_oe,   // IOs: Enable path  (active high: 1=output)
-    input  wire       ena,      // Siempre 1 cuando el diseño está activo
-    input  wire       clk,      // Reloj del sistema
-    input  wire       rst_n     // Reset activo bajo
+    input  wire [7:0] ui_in,    // Dedicated inputs  — ui_in[0] = Bit_in (serial)
+    output wire [7:0] uo_out,   // Dedicated outputs — result[7:0]
+    input  wire [7:0] uio_in,   // Bidirectional IOs: input path  (unused)
+    output wire [7:0] uio_out,  // Bidirectional IOs: output path — uio_out[0] = Done
+    output wire [7:0] uio_oe,   // Bidirectional IOs: enable path (active high: 1=output)
+    input  wire       ena,      // Always 1 when the design is powered
+    input  wire       clk,      // System clock
+    input  wire       rst_n     // Active-low reset
 );
 
-    // ─── Parámetros: límites de bit_count (0-indexado, 5 bits) ───────────────
+    // ── Bit-count limits (0-indexed, 5-bit counter) ───────────────────────────
     localparam [4:0] CNT_A_END  = 5'd6;   // bits 0..6   → reg_A  (7 bits)
     localparam [4:0] CNT_B_END  = 5'd13;  // bits 7..13  → reg_B  (7 bits)
     localparam [4:0] CNT_OP_END = 5'd16;  // bits 14..16 → reg_op (3 bits)
 
-    // ─── Estados FSM ──────────────────────────────────────────────────────────
-    localparam [1:0] S_RECV = 2'd0,   // Recepción serial
-                     S_CALC = 2'd1,   // Cálculo y captura de resultado
-                     S_DONE = 2'd2;   // Resultado estable, espera reset
+    // ── FSM states ────────────────────────────────────────────────────────────
+    localparam [1:0] S_RECV = 2'd0,   // Serial receive
+                     S_CALC = 2'd1,   // Compute and latch result
+                     S_DONE = 2'd2;   // Result stable, waiting for reset
 
-    // ─── Registros internos ───────────────────────────────────────────────────
+    // ── Internal registers ────────────────────────────────────────────────────
     reg [1:0] state;
     reg [4:0] bit_count;
     reg [6:0] reg_A;
@@ -63,7 +63,7 @@ module tt_um_alu7b (
 
     wire bit_in = ui_in[0];
 
-    // ─── Instancia del módulo combinacional alu_7b ────────────────────────────
+    // ── Combinational ALU instance ────────────────────────────────────────────
     wire [7:0] alu_out;
     alu_7b u_alu (
         .A      (reg_A),
@@ -72,7 +72,7 @@ module tt_um_alu7b (
         .result (alu_out)
     );
 
-    // ─── FSM + Datapath ───────────────────────────────────────────────────────
+    // ── FSM + Datapath ────────────────────────────────────────────────────────
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state      <= S_RECV;
@@ -83,13 +83,13 @@ module tt_um_alu7b (
             reg_result <= 8'd0;
             done_reg   <= 1'b0;
         end else begin
-            done_reg <= 1'b0;   // Done es pulso de exactamente 1 ciclo de reloj
+            done_reg <= 1'b0;   // Done is a one-cycle pulse; clear every edge
 
             case (state)
 
-                // S_RECV: captura serial con shift-right LSB-first
-                // Bit nuevo entra en [MSB], corre hacia [LSB].
-                // Tras N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
+                // S_RECV: LSB-first shift-right capture.
+                // New bit enters at [MSB] and shifts toward [LSB].
+                // After N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
                 S_RECV: begin
                     if (bit_count <= CNT_A_END)
                         reg_A  <= {bit_in, reg_A[6:1]};
@@ -105,17 +105,17 @@ module tt_um_alu7b (
                         bit_count <= bit_count + 5'd1;
                 end
 
-                // S_CALC: reg_A / reg_B / reg_op estables
-                // La ALU combinacional ya tiene el resultado correcto.
-                // Latchar resultado y generar pulso Done.
+                // S_CALC: reg_A / reg_B / reg_op are stable.
+                // The combinational ALU already has the correct result.
+                // Latch result and assert Done for one cycle.
                 S_CALC: begin
                     reg_result <= alu_out;
                     done_reg   <= 1'b1;
                     state      <= S_DONE;
                 end
 
-                // S_DONE: resultado estable en uo_out.
-                // Espera rst_n=0 para iniciar una nueva operación.
+                // S_DONE: result stable on uo_out.
+                // Wait for rst_n = 0 to start a new operation.
                 S_DONE: state <= S_DONE;
 
                 default: state <= S_RECV;
@@ -123,12 +123,12 @@ module tt_um_alu7b (
         end
     end
 
-    // ─── Asignación de salidas ────────────────────────────────────────────────
+    // ── Output assignments ────────────────────────────────────────────────────
     assign uo_out  = reg_result;
-    assign uio_out = {7'b0, done_reg};  // uio_out[0] = Done
-    assign uio_oe  = 8'b0000_0001;      // Solo uio[0] es salida
+    assign uio_out = {7'b0, done_reg};  // uio_out[0] = Done; uio_out[7:1] = 0
+    assign uio_oe  = 8'b0000_0001;      // Only uio[0] is an output
 
-    // ─── Pines de entrada no usados (elimina warnings del linter) ────────────
+    // ── Unused input tie-off (suppresses linter warnings) ────────────────────
     wire _unused = &{ena, uio_in, ui_in[7:1], 1'b0};
 
 endmodule

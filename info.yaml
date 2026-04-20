@@ -1,36 +1,36 @@
 # Tiny Tapeout project information
-# Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026
-# Shuttle: SKY26a  |  PDK: sky130A  |  Deadline envío: Abril 22, 2026
+# Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026
+# Shuttle: SKY26a  |  PDK: sky130A  |  Submission deadline: April 22, 2026
 
 project:
-  title:       "ALU 7 bits - Entrada Serial / Salida Paralela"
-  author:      "Bootcamp Diseño y Fabricación de Chips UTP 2026"
+  title:       "7-bit ALU - Serial Input / Parallel Output"
+  author:      "Sharif Obando"
   discord:     ""
   description: >
-    ALU de 7 bits con entrada serial LSB-first y salida paralela de 8 bits.
-    Soporta Suma, AND, OR, XOR y Resta. Protocolo: 7 bits op_A + 7 bits op_B
-    + 3 bits opcode por flanco de CLK (17 ciclos en total). Señal Done en
-    uio[0] indica fin de operación.
+    7-bit ALU with LSB-first serial input and 8-bit parallel output.
+    Supports ADD, AND, OR, XOR and SUB. Protocol: 7 bits op_A + 7 bits op_B
+    + 3 bits opcode per CLK edge (17 cycles total). Done signal on uio[0]
+    indicates end of operation.
   language:    "Verilog"
-  clock_hz:    50000000   # 50 MHz — máximo garantizado por TinyTapeout IO
+  clock_hz:    50000000   # 50 MHz — TinyTapeout IO maximum
 
-  # Un tile mínimo (160 x 100 um) es suficiente para esta ALU
+  # One minimum tile (160 x 100 um) is sufficient for this ALU
   tiles: "1x1"
 
-  # El nombre del módulo top DEBE comenzar con "tt_um_"
+  # Top module name MUST start with "tt_um_"
   top_module: "tt_um_alu7b"
 
-  # Archivos fuente del proyecto — actualizar también PROJECT_SOURCES en test/Makefile
+  # Source files — also update PROJECT_SOURCES in test/Makefile
   source_files:
     - "project.v"
     - "alu_7b.v"
     - "tt_um_alu7b.v"
 
-# Mapa de pines — completar todos los campos (no eliminar ni agregar pines)
+# Pin map — all fields must be present (do not add or remove pins)
 pinout:
 
-  # ── Entradas dedicadas ────────────────────────────────────────────────────
-  ui[0]: "Bit_in — Dato serial de entrada (LSB primero: 7b A, 7b B, 3b op)"
+  #Dedicated inputs
+  ui[0]: "Bit_in — Serial data input (LSB first: 7b A, 7b B, 3b opcode)"
   ui[1]: ""
   ui[2]: ""
   ui[3]: ""
@@ -39,18 +39,18 @@ pinout:
   ui[6]: ""
   ui[7]: ""
 
-  # ── Salidas dedicadas ─────────────────────────────────────────────────────
-  uo[0]: "Data_out[0] — Resultado bit 0 (LSB)"
-  uo[1]: "Data_out[1] — Resultado bit 1"
-  uo[2]: "Data_out[2] — Resultado bit 2"
-  uo[3]: "Data_out[3] — Resultado bit 3"
-  uo[4]: "Data_out[4] — Resultado bit 4"
-  uo[5]: "Data_out[5] — Resultado bit 5"
-  uo[6]: "Data_out[6] — Resultado bit 6 (MSB del operando)"
-  uo[7]: "Data_out[7] — Carry (suma) / Borrow (resta)"
+  #Dedicated outputs
+  uo[0]: "Data_out[0] — Result bit 0 (LSB)"
+  uo[1]: "Data_out[1] — Result bit 1"
+  uo[2]: "Data_out[2] — Result bit 2"
+  uo[3]: "Data_out[3] — Result bit 3"
+  uo[4]: "Data_out[4] — Result bit 4"
+  uo[5]: "Data_out[5] — Result bit 5"
+  uo[6]: "Data_out[6] — Result bit 6 (MSB of operand)"
+  uo[7]: "Data_out[7] — Carry (ADD) / Borrow (SUB)"
 
-  # ── Pines bidireccionales ─────────────────────────────────────────────────
-  uio[0]: "Done — Pulso alto (1 ciclo CLK) cuando la operación ha finalizado"
+  #Bidirectional pins
+  uio[0]: "Done — One-cycle high pulse (1 CLK) when the operation has finished"
   uio[1]: ""
   uio[2]: ""
   uio[3]: ""
@@ -59,5 +59,5 @@ pinout:
   uio[6]: ""
   uio[7]: ""
 
-# No modificar
+# Do not modify
 yaml_version: 6

@@ -1,90 +1,91 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# ALU de 7 bits — Entrada Serial / Salida Paralela
+# 7-bit ALU — Serial Input / Parallel Output
 
-**Bootcamp Diseño y Fabricación de Chips — IEEE OpenSilicon / IEEE CASS UTP 2026**
+**Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026**
 Shuttle: SKY26a · PDK: sky130A (130 nm) · Tile: 1×1
 
 ---
 
-## Descripción del proyecto
+## Project description
 
-Este proyecto implementa una **Unidad Aritmético-Lógica (ALU) de 7 bits** diseñada
-para fabricación real en silicio a través de la plataforma [TinyTapeout](https://tinytapeout.com).
+This project implements a **7-bit Arithmetic Logic Unit (ALU)** designed for
+real silicon fabrication through the [TinyTapeout](https://tinytapeout.com)
+platform.
 
-El sistema recibe dos operandos de 7 bits y un código de operación de 3 bits de
-forma **serial** (LSB-first) a través de un único pin de entrada, y entrega el
-resultado de 8 bits de forma **paralela** al finalizar el cómputo.
+The system receives two 7-bit operands and a 3-bit operation code **serially**
+(LSB first) through a single input pin, and delivers the 8-bit result **in
+parallel** when the computation is complete.
 
-### Operaciones soportadas
+### Supported operations
 
-| op[2:0] | Operación | Descripción                          |
+| op[2:0] | Operation | Description                          |
 |---------|-----------|--------------------------------------|
-| `000`   | Suma      | `result = A + B` (bit[7] = carry)    |
+| `000`   | ADD       | `result = A + B` (bit[7] = carry)    |
 | `001`   | AND       | `result = A & B`                     |
 | `010`   | OR        | `result = A \| B`                    |
 | `011`   | XOR       | `result = A ^ B`                     |
-| `100`   | Resta     | `result = A - B` (bit[7] = borrow)   |
+| `100`   | SUB       | `result = A - B` (bit[7] = borrow)   |
 
-### Protocolo de entrada serial
+### Serial input protocol
 
 ```
-Posedge  1.. 7  → Operando A [6:0], LSB primero
-Posedge  8..14  → Operando B [6:0], LSB primero
-Posedge 15..17  → Opcode [2:0],    LSB primero
-Posedge 18      → Resultado en uo_out, Done=1 en uio_out[0]
+Posedge  1.. 7  → Operand A [6:0], LSB first
+Posedge  8..14  → Operand B [6:0], LSB first
+Posedge 15..17  → Opcode [2:0],   LSB first
+Posedge 18      → Result on uo_out, Done=1 on uio_out[0]
 ```
 
 ---
 
-## Estructura del repositorio
+## Repository structure
 
 ```
 myBootcampChip/
 ├── src/
-│   ├── project.v        ← Archivo de integración (punto de entrada del flujo)
-│   ├── alu_7b.v         ← ALU combinacional de 7 bits (módulo funcional)
-│   ├── tt_um_alu7b.v    ← Top-level TinyTapeout con FSM serial→paralela
-│   └── config.json      ← Configuración LibreLane/OpenLane
+│   ├── project.v        ← Synthesis entry point (empty — no module logic)
+│   ├── alu_7b.v         ← 7-bit combinational ALU
+│   ├── tt_um_alu7b.v    ← TinyTapeout top-level with serial→parallel FSM
+│   └── config.json      ← LibreLane / OpenLane configuration
 ├── test/
-│   ├── test.py          ← Banco de pruebas cocotb (15 casos)
-│   ├── tb.v             ← Testbench Verilog
-│   ├── Makefile         ← Build RTL y Gate-Level
-│   ├── tb.gtkw          ← Configuración de señales GTKWave
-│   ├── requirements.txt ← Dependencias Python
-│   └── README.md        ← Instrucciones de simulación
+│   ├── test.py          ← cocotb testbench (15 test cases)
+│   ├── tb.v             ← Verilog testbench wrapper
+│   ├── Makefile         ← RTL and gate-level build
+│   ├── tb.gtkw          ← GTKWave signal configuration
+│   ├── requirements.txt ← Python dependencies
+│   └── README.md        ← Simulation instructions
 ├── docs/
-│   └── info.md          ← Datasheet del proyecto
+│   └── info.md          ← Project datasheet
 ├── .github/workflows/
-│   ├── gds.yaml         ← Flujo completo GDS + precheck + GL test + viewer
-│   ├── test.yaml        ← CI de pruebas RTL
-│   ├── docs.yaml        ← Generación de documentación
-│   └── fpga.yaml        ← Bitstream FPGA (ICE40UP5K)
+│   ├── gds.yaml         ← Full GDS flow + precheck + GL test + viewer
+│   ├── test.yaml        ← RTL test CI
+│   ├── docs.yaml        ← Documentation build
+│   └── fpga.yaml        ← FPGA bitstream (ICE40UP5K)
 ├── .devcontainer/
-│   ├── Dockerfile       ← Entorno con LibreLane, iverilog, cocotb
+│   ├── Dockerfile       ← Environment with LibreLane, iverilog, cocotb
 │   ├── devcontainer.json
 │   └── copy_tt_support_tools.sh
 ├── .vscode/
-│   ├── settings.json    ← Linting y formateo Verilog
-│   └── extensions.json  ← Extensiones recomendadas
-├── info.yaml            ← Metadatos del proyecto para TinyTapeout
+│   ├── settings.json    ← Verilog linting and formatting
+│   └── extensions.json  ← Recommended extensions
+├── info.yaml            ← TinyTapeout project metadata
 ├── .gitignore
 ├── LICENSE
-└── README.md            ← Este archivo
+└── README.md            ← This file
 ```
 
 ---
 
-## Configurar y ejecutar el proyecto
+## Getting started
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<tu-usuario>/myBootcampChip.git
+git clone https://github.com/<your-username>/myBootcampChip.git
 cd myBootcampChip
 ```
 
-### 2. Ejecutar simulación RTL
+### 2. Run RTL simulation
 
 ```bash
 cd test
@@ -92,28 +93,28 @@ pip install -r requirements.txt
 make -B
 ```
 
-### 3. Ver formas de onda
+### 3. View waveforms
 
 ```bash
 gtkwave tb.fst tb.gtkw
 ```
 
-### 4. Síntesis con LibreLane (dentro del devcontainer o con IIC-OSIC-TOOLS)
+### 4. Synthesis with LibreLane (inside the devcontainer or IIC-OSIC-TOOLS)
 
 ```bash
 cd src
 librelane config.json
-# Visualizar layout:
+# View layout:
 librelane --last-run --flow OpenInKlayout config.json
 ```
 
 ---
 
-## Recursos TinyTapeout
+## TinyTapeout resources
 
 - [FAQ](https://tinytapeout.com/faq/)
-- [Lecciones de diseño digital](https://tinytapeout.com/digital_design/)
-- [Documentación de especificaciones](https://tinytapeout.com/specs)
-- [Shuttle SKY26a](https://app.tinytapeout.com/shuttles/ttsky26a)
-- [Comunidad Discord](https://tinytapeout.com/discord)
-- [Construir localmente](https://www.tinytapeout.com/guides/local-hardening/)
+- [Digital design lessons](https://tinytapeout.com/digital_design/)
+- [Specifications](https://tinytapeout.com/specs)
+- [SKY26a shuttle](https://app.tinytapeout.com/shuttles/ttsky26a)
+- [Discord community](https://tinytapeout.com/discord)
+- [Build locally](https://www.tinytapeout.com/guides/local-hardening/)
