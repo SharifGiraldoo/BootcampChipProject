@@ -33,7 +33,7 @@ OP_OR  = 0b010
 OP_XOR = 0b011
 OP_SUB = 0b100
 
-CLK_PERIOD_NS = 10   # 10 ns clock period → 100 MHz
+CLK_PERIOD_NS = 20   # 20 ns clock period → 50 MHz
 
 
 

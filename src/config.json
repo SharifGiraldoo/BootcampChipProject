@@ -13,6 +13,8 @@
   "//": "Increase if you get setup-time violations.",
   "CLOCK_PERIOD": 20,
 
+    "MAX_METAL_LAYER": 4,
+
   "//": "Hold-slack margins — increase if hold violations are reported.",
   "PL_RESIZER_HOLD_SLACK_MARGIN": 0.1,
   "GRT_RESIZER_HOLD_SLACK_MARGIN": 0.05,
