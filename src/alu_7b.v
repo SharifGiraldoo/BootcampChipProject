@@ -17,10 +17,19 @@
  *   011 → XOR   result = A ^ B
  *   100 → SUB   result = A - B   (bit[7] = borrow, two's complement)
  *
+ * NOTE ON `timescale:
+ *   `timescale is intentionally omitted from synthesis RTL files.
+ *   It is only meaningful in simulation (testbench tb.v).
+ *   Verilator warns (TIMESCALEMOD) when some modules in a compilation
+ *   unit have `timescale and others (e.g. SKY130 PDK black-box models)
+ *   do not. The suppress directive below silences that warning on the
+ *   PDK side; this file simply does not declare `timescale at all,
+ *   which is the correct practice for synthesisable RTL.
+ *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-`timescale 1ns / 1ps
+/* verilator lint_off TIMESCALEMOD */
 `default_nettype none
 
 module alu_7b (
@@ -42,3 +51,4 @@ module alu_7b (
     end
 
 endmodule
+/* verilator lint_on TIMESCALEMOD */

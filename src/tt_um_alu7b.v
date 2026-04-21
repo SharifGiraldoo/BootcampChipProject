@@ -6,7 +6,7 @@
  * Implements the serial receive FSM and instantiates the combinational alu_7b
  * module.
  *
- * 
+ *
  * SERIAL INPUT PROTOCOL  (ui_in[0] = Bit_in, LSB first):
  *
  *   Posedge  1 ..  7  → Operand A [6:0]
@@ -25,10 +25,19 @@
  * RESET:
  *   rst_n = 0 → synchronous reset to initial state; all registers cleared
  *
+ * NOTE ON `timescale:
+ *   `timescale is intentionally omitted from synthesis RTL files.
+ *   It is only meaningful in simulation (testbench tb.v).
+ *   Verilator warns (TIMESCALEMOD) when some modules in a compilation
+ *   unit have `timescale and others (e.g. SKY130 PDK black-box models)
+ *   do not. The suppress directive below silences that warning on the
+ *   PDK side; this file simply does not declare `timescale at all,
+ *   which is the correct practice for synthesisable RTL.
+ *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-`timescale 1ns / 1ps
+/* verilator lint_off TIMESCALEMOD */
 `default_nettype none
 
 module tt_um_alu7b (
@@ -132,3 +141,4 @@ module tt_um_alu7b (
     wire _unused = &{ena, uio_in, ui_in[7:1], 1'b0};
 
 endmodule
+/* verilator lint_on TIMESCALEMOD */
