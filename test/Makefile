@@ -8,7 +8,7 @@ TOPLEVEL_LANG ?= verilog
 SRC_DIR        = $(PWD)/../src
 
 # ── Project sources — MUST match info.yaml:source_files ───────────────────────
-PROJECT_SOURCES = project.v alu_7b.v tt_um_alu7b.v
+PROJECT_SOURCES = alu_7b.v tt_um_alu7b.v
 
 ifneq ($(GATES),yes)
 

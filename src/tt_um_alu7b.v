@@ -6,13 +6,14 @@
  * Implements the serial receive FSM and instantiates the combinational alu_7b
  * module.
  *
- *
  * SERIAL INPUT PROTOCOL  (ui_in[0] = Bit_in, LSB first):
  *
  *   Posedge  1 ..  7  → Operand A [6:0]
  *   Posedge  8 .. 14  → Operand B [6:0]
- *   Posedge 15 .. 17  → Opcode  [2:0]
- *   Posedge 18        → FSM S_CALC: result latched in uo_out, Done=1 on uio_out[0]
+ *   Posedge 15        → FSM S_CALC: result latched in uo_out, Done=1 on uio_out[0]
+ *
+ * OPCODE (parallel input):
+ *   ui_in[3:1] = op[2:0]  — stable during the entire operation
  *
  * LSB-FIRST SHIFT REGISTER (shift-right, new bit enters at MSB):
  *   reg <= {bit_in, reg[N-1:1]}
@@ -25,15 +26,6 @@
  * RESET:
  *   rst_n = 0 → synchronous reset to initial state; all registers cleared
  *
- * NOTE ON `timescale:
- *   `timescale is intentionally omitted from synthesis RTL files.
- *   It is only meaningful in simulation (testbench tb.v).
- *   Verilator warns (TIMESCALEMOD) when some modules in a compilation
- *   unit have `timescale and others (e.g. SKY130 PDK black-box models)
- *   do not. The suppress directive below silences that warning on the
- *   PDK side; this file simply does not declare `timescale at all,
- *   which is the correct practice for synthesisable RTL.
- *
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -41,7 +33,7 @@
 `default_nettype none
 
 module tt_um_alu7b (
-    input  wire [7:0] ui_in,    // Dedicated inputs  — ui_in[0] = Bit_in (serial)
+    input  wire [7:0] ui_in,    // ui_in[0]=Bit_in (serial), ui_in[3:1]=op[2:0]
     output wire [7:0] uo_out,   // Dedicated outputs — result[7:0]
     input  wire [7:0] uio_in,   // Bidirectional IOs: input path  (unused)
     output wire [7:0] uio_out,  // Bidirectional IOs: output path — uio_out[0] = Done
@@ -52,9 +44,8 @@ module tt_um_alu7b (
 );
 
     // ── Bit-count limits (0-indexed, 5-bit counter) ───────────────────────────
-    localparam [4:0] CNT_A_END  = 5'd6;   // bits 0..6   → reg_A  (7 bits)
-    localparam [4:0] CNT_B_END  = 5'd13;  // bits 7..13  → reg_B  (7 bits)
-    localparam [4:0] CNT_OP_END = 5'd16;  // bits 14..16 → reg_op (3 bits)
+    localparam [4:0] CNT_A_END = 5'd6;   // bits 0..6   → reg_A  (7 bits)
+    localparam [4:0] CNT_B_END = 5'd13;  // bits 7..13  → reg_B  (7 bits)
 
     // ── FSM states ────────────────────────────────────────────────────────────
     localparam [1:0] S_RECV = 2'd0,   // Serial receive
@@ -66,18 +57,18 @@ module tt_um_alu7b (
     reg [4:0] bit_count;
     reg [6:0] reg_A;
     reg [6:0] reg_B;
-    reg [2:0] reg_op;
     reg [7:0] reg_result;
     reg       done_reg;
 
-    wire bit_in = ui_in[0];
+    wire       bit_in = ui_in[0];
+    wire [2:0] op     = ui_in[3:1];   // Parallel opcode, stable during operation
 
     // ── Combinational ALU instance ────────────────────────────────────────────
     wire [7:0] alu_out;
     alu_7b u_alu (
         .A      (reg_A),
         .B      (reg_B),
-        .op     (reg_op),
+        .op     (op),
         .result (alu_out)
     );
 
@@ -88,7 +79,6 @@ module tt_um_alu7b (
             bit_count  <= 5'd0;
             reg_A      <= 7'd0;
             reg_B      <= 7'd0;
-            reg_op     <= 3'd0;
             reg_result <= 8'd0;
             done_reg   <= 1'b0;
         end else begin
@@ -101,20 +91,18 @@ module tt_um_alu7b (
                 // After N posedges: reg[N-1]=MSB ... reg[0]=LSB  ✓
                 S_RECV: begin
                     if (bit_count <= CNT_A_END)
-                        reg_A  <= {bit_in, reg_A[6:1]};
-                    else if (bit_count <= CNT_B_END)
-                        reg_B  <= {bit_in, reg_B[6:1]};
+                        reg_A <= {bit_in, reg_A[6:1]};
                     else
-                        reg_op <= {bit_in, reg_op[2:1]};
+                        reg_B <= {bit_in, reg_B[6:1]};
 
-                    if (bit_count == CNT_OP_END) begin
+                    if (bit_count == CNT_B_END) begin
                         state     <= S_CALC;
                         bit_count <= 5'd0;
                     end else
                         bit_count <= bit_count + 5'd1;
                 end
 
-                // S_CALC: reg_A / reg_B / reg_op are stable.
+                // S_CALC: reg_A / reg_B / op are stable.
                 // The combinational ALU already has the correct result.
                 // Latch result and assert Done for one cycle.
                 S_CALC: begin
@@ -138,7 +126,7 @@ module tt_um_alu7b (
     assign uio_oe  = 8'b0000_0001;      // Only uio[0] is an output
 
     // ── Unused input tie-off (suppresses linter warnings) ────────────────────
-    wire _unused = &{ena, uio_in, ui_in[7:1], 1'b0};
+    wire _unused = &{ena, uio_in, ui_in[7:4], 1'b0};
 
 endmodule
 /* verilator lint_on TIMESCALEMOD */
