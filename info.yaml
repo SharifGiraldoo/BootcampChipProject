@@ -18,11 +18,12 @@ project:
   tiles: "1x1"
 
   # Top module name MUST start with "tt_um_"
-  top_module: "tt_um_alu7b"
+  top_module: "serial_alu_ctrl"
 
   # Source files — also update PROJECT_SOURCES in test/Makefile
   source_files:
     - "alu_7b.v"
+    - "serial_alu_ctrl.v"
     - "tt_um_alu7b.v"
 
 # Pin map — all fields must be present (do not add or remove pins)
@@ -30,10 +31,10 @@ pinout:
 
   #Dedicated inputs
   ui[0]: "Bit_in — Serial data input (LSB first: 7b A, 7b B, 3b opcode)"
-  ui[1]: ""
-  ui[2]: ""
-  ui[3]: ""
-  ui[4]: ""
+  ui[1]: "op0 — Opcode bit 0 (LSB of opcode)"
+  ui[2]: "op1"
+  ui[3]: "op2"
+  ui[4]: "op3"
   ui[5]: ""
   ui[6]: ""
   ui[7]: ""
