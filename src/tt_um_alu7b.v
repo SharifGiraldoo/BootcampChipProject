@@ -46,7 +46,7 @@ module tt_um_alu7b (
 
 wire done_reg;
 
-serial_alu_ctrl alu (
+tt_um_serial_alu_ctrl alu (
     .CLK(clk),
     .RST_n(rst_n),
     .Bit_in(ui_in[0]),

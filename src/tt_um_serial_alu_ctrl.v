@@ -50,7 +50,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-module serial_alu_ctrl (
+module tt_um_serial_alu_ctrl (
     // ── Entradas de control ───────────────────────────────────────────────────
     input  wire       CLK,        // Reloj del sistema
     input  wire       RST_n,      // Reset activo-bajo  (/RST en el enunciado)
