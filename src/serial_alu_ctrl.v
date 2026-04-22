@@ -47,7 +47,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-`timescale 1ns / 1ps
+/* verilator lint_off TIMESCALEMOD */
+
 `default_nettype none
 
 module serial_alu_ctrl (
