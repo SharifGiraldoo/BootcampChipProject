@@ -16,6 +16,15 @@ complete.
 
 ---
 
+# 2D Preview 
+![alt text](alu7bPreview2d.png)
+
+
+
+### Serial input protocol
+
+### Serial input protocol
+
 ## How it works
 
 ### Serial input protocol
