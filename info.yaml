@@ -1,6 +1,6 @@
 # Tiny Tapeout project information
 # Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026
-# Shuttle: SKY26a  |  PDK: sky130A  |  Submission deadline: April 22, 2026
+# Shuttle: SKY26a  |  PDK: sky130A  |
 
 project:
   title:       "7-bit ALU - Serial Input / Parallel Output"
@@ -8,11 +8,12 @@ project:
   discord:     "sharif_g230"
   description: >
     7-bit ALU with LSB-first serial input and 8-bit parallel output.
-    Supports ADD, AND, OR, XOR and SUB. Protocol: 7 bits op_A + 7 bits op_B
-    + 3 bits opcode per CLK edge (17 cycles total). Done signal on uio[0]
-    indicates end of operation.
+    Supports ADD, AND, OR, XOR and SUB. Protocol: 7 bits operand A + 7 bits
+    operand B per clock edge (14 rising edges total). The opcode op[2:0] is
+    a stable parallel input on ui_in[3:1]. Done signal on uio[0] pulses high
+    for exactly one clock cycle to indicate end of operation.
   language:    "Verilog"
-  clock_hz:    50000000   # 50 MHz — TinyTapeout IO maximum
+  clock_hz:    50000000   # 50 MHz — TinyTapeout digital IO maximum
 
   # One minimum tile (160 x 100 um) is sufficient for this ALU
   tiles: "1x1"
@@ -29,28 +30,28 @@ project:
 # Pin map — all fields must be present (do not add or remove pins)
 pinout:
 
-  #Dedicated inputs
-  ui[0]: "Bit_in — Serial data input (LSB first: 7b A, 7b B, 3b opcode)"
-  ui[1]: "op0 — Opcode bit 0 (LSB of opcode)"
-  ui[2]: "op1"
-  ui[3]: "op2"
+  # Dedicated inputs
+  ui[0]: "Bit_in — Serial data input (LSB first: 7 bits operand A, then 7 bits operand B)"
+  ui[1]: "op[0] — Opcode bit 0 (LSB) — stable parallel input throughout operation"
+  ui[2]: "op[1] — Opcode bit 1"
+  ui[3]: "op[2] — Opcode bit 2 (MSB)"
   ui[4]: ""
   ui[5]: ""
   ui[6]: ""
   ui[7]: ""
 
-  #Dedicated outputs
+  # Dedicated outputs
   uo[0]: "Data_out[0] — Result bit 0 (LSB)"
   uo[1]: "Data_out[1] — Result bit 1"
   uo[2]: "Data_out[2] — Result bit 2"
   uo[3]: "Data_out[3] — Result bit 3"
   uo[4]: "Data_out[4] — Result bit 4"
   uo[5]: "Data_out[5] — Result bit 5"
-  uo[6]: "Data_out[6] — Result bit 6 (MSB of operand)"
-  uo[7]: "Data_out[7] — Carry (ADD) / Borrow (SUB)"
+  uo[6]: "Data_out[6] — Result bit 6 (MSB of operand field)"
+  uo[7]: "Data_out[7] — Carry-out (ADD) / Borrow flag (SUB); always 0 for AND, OR, XOR"
 
-  #Bidirectional pins
-  uio[0]: "Done — One-cycle high pulse (1 CLK) when the operation has finished"
+  # Bidirectional pins
+  uio[0]: "Done — One-cycle high pulse (1 CLK) indicating operation result is valid"
   uio[1]: ""
   uio[2]: ""
   uio[3]: ""
