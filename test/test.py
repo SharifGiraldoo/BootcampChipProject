@@ -2,116 +2,123 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-test.py — cocotb testbench para tt_um_alu7b
-============================================
+test.py — cocotb Testbench for tt_um_alu7b
+===========================================
 
-Módulo bajo prueba (DUT): tt_um_alu7b  (instanciado en tb.v como user_project)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROTOCOLO SERIAL tt_um_alu7b
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Posedge  1 ..  7  → Operando A [6:0], LSB primero  (bit_count 0..6)
-  Posedge  8 .. 14  → Operando B [6:0], LSB primero  (bit_count 7..13)
-  Posedge 15        → S_CALC: reg_result←alu_out, done_reg←1, uo_out válido
-
-  Opcode : puerto PARALELO en ui_in[3:1] = op[2:0], estable durante
-           toda la operación (igual que serial_alu_ctrl.v).
+Module Under Test (DUT): tt_um_alu7b
+  Instantiated as `user_project` in tb.v.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TABLA DE OPERACIONES (referencia alu_7b.v)
+SERIAL PROTOCOL — tt_um_alu7b
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  000 → ADD  result = {1'b0,A} + {1'b0,B}  [8 bits]  bit[7]=carry-out
-  001 → AND  result = {1'b0, A & B}                   bit[7]=0
-  010 → OR   result = {1'b0, A | B}                   bit[7]=0
-  011 → XOR  result = {1'b0, A ^ B}                   bit[7]=0
-  100 → SUB  result = {1'b0,A} - {1'b0,B}  [8 bits]  bit[7]=borrow (C2)
+  Rising edge  1 ..  7  → Operand A [6:0], LSB first  (bit_count 0..6)
+  Rising edge  8 .. 14  → Operand B [6:0], LSB first  (bit_count 7..13)
+  Rising edge 15        → S_CALC: reg_result ← alu_out, done_reg = 1 (1 cycle)
 
-  En Python (A, B ∈ [0, 127]):
-    ADD expected = (A + B) & 0xFF
-    SUB expected = (A - B) & 0xFF   (complemento a 2 de 8 bits)
-    AND expected = (A & B) & 0x7F   (bit[7] siempre 0)
-    OR  expected = (A | B) & 0x7F
-    XOR expected = (A ^ B) & 0x7F
+  Opcode: parallel input on ui_in[3:1] = op[2:0], stable throughout the
+  operation. It does NOT need to be serialised through Bit_in.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPERATION TABLE (reference: alu_7b.v)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  000 → ADD  result = {1'b0, A} + {1'b0, B}  [8 bits]  result[7] = carry-out
+  001 → AND  result = {1'b0, A & B}                     result[7] = 0 (always)
+  010 → OR   result = {1'b0, A | B}                     result[7] = 0 (always)
+  011 → XOR  result = {1'b0, A ^ B}                     result[7] = 0 (always)
+  100 → SUB  result = {1'b0, A} - {1'b0, B}  [8 bits]  result[7] = borrow (C2)
+
+  Python expected values (A, B ∈ [0, 127]):
+    ADD  expected = (A + B) & 0xFF
+    SUB  expected = (A - B) & 0xFF   (8-bit two's complement)
+    AND  expected = (A & B) & 0x7F   (result[7] always 0)
+    OR   expected = (A | B) & 0x7F
+    XOR  expected = (A ^ B) & 0x7F
 """
 
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge
 
-# ── Opcodes (coinciden con alu_7b.v y tt_um_alu7b.v) ─────────────────────────
+# ── Opcodes — must match alu_7b.v and tt_um_alu7b.v ──────────────────────────
 OP_ADD = 0b000
 OP_AND = 0b001
 OP_OR  = 0b010
 OP_XOR = 0b011
 OP_SUB = 0b100
 
-CLK_PERIOD_NS = 20   # 20 ns → 50 MHz (límite TinyTapeout IO)
+CLK_PERIOD_NS = 20   # 20 ns → 50 MHz (TinyTapeout digital I/O maximum)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HELPER: reset_dut
 #
-# Reset asíncrono activo-bajo (always @(posedge clk or negedge rst_n) en RTL).
-# rst_n=0 tiene efecto inmediato; se mantiene 5 ciclos por margen robusto.
-# Finaliza en FallingEdge para que el primer bit[0] de A sea presentado
-# sin un FallingEdge extra, alineando correctamente los 14 posedges
-# de captura con bit_count 0..13 del RTL.
+# Applies synchronous active-low reset to the DUT.
+# rst_n = 0 takes effect on the next rising edge (synchronous reset in RTL).
+# Held for 5 clock cycles for robust initialisation. Released on a falling
+# edge so the caller's next action aligns with the DUT's first S_RECV cycle.
+#
+# Postcondition:
+#   - FSM in S_RECV, bit_count = 0, reg_A = 0, reg_B = 0, reg_result = 0
+#   - Control returned on a falling edge — next event is a rising edge
 # ─────────────────────────────────────────────────────────────────────────────
 async def reset_dut(dut):
-    """Reset asíncrono activo-bajo. Termina en FallingEdge listo para bit[0]."""
+    """Synchronous active-low reset. Returns on a falling edge."""
     dut.rst_n.value  = 0
     dut.ui_in.value  = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
-    await FallingEdge(dut.clk)   # Semiciclo bajo: siguiente flanco es posedge
+    await FallingEdge(dut.clk)   # Align: next event will be a rising edge
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HELPER: run_alu
 #
-# Envía 14 bits seriales LSB-first: A[6:0] + B[6:0].
-# El opcode se aplica en paralelo via ui_in[3:1] antes de iniciar la
-# transmisión y se mantiene estable durante toda la operación.
+# Transmits 14 serial bits (7 for A, 7 for B), LSB first, and polls for Done.
 #
-# Precondición: control en FallingEdge (tras reset_dut).
+# Precondition:
+#   - DUT in S_RECV (after reset_dut), control on a falling edge
 #
-# Temporización:
-#   bit[0]   : presentar dato → RisingEdge (sin FallingEdge previo)
-#   bit[i>0] : FallingEdge → presentar dato → RisingEdge
+# Timing per bit:
+#   bit[0]: present data → RisingEdge (no leading FallingEdge — already there)
+#   bit[i > 0]: FallingEdge → present data → RisingEdge
 #
-# Tras 14 posedges (bit_count llega a CNT_B_END=13), la FSM transiciona
-# de S_RECV a S_CALC. En el posedge 15 (S_CALC) se latchea el resultado
-# y done_reg se activa por 1 ciclo.
+# After 14 rising edges (bit_count reaches CNT_B_END = 13), FSM → S_CALC.
+# On the 15th rising edge (S_CALC), result is latched and Done is asserted
+# for exactly one cycle.
 #
-# Ventana de captura de Done: hasta 4 iteraciones FallingEdge→RisingEdge.
-# En condiciones normales Done aparece en la primera iteración (posedge 15).
+# Done is polled for up to 4 FallingEdge→RisingEdge pairs. Under normal
+# conditions Done appears on the first iteration (15th rising edge total).
+#
+# Returns:
+#   result (int): captured value of uo_out when Done was observed
+#   done_seen (bool): True if Done was asserted within the polling window
 # ─────────────────────────────────────────────────────────────────────────────
 async def run_alu(dut, A, B, op):
     """
-    Transmite 14 bits seriales (A + B, LSB-first).
-    El opcode se aplica en ui_in[3:1] como puerto paralelo.
-    Retorna (result: int, done_seen: bool).
+    Transmit 14 serial bits (A [6:0] + B [6:0], LSB first).
+    Opcode is applied on ui_in[3:1] as a stable parallel input.
+    Returns (result: int, done_seen: bool).
     """
-    # Construir secuencia de 14 bits: A[6:0] LSB-first, luego B[6:0] LSB-first
+    # Build the 14-bit serial sequence: A LSB-first then B LSB-first
     bits  = [(A >> i) & 1 for i in range(7)]
     bits += [(B >> i) & 1 for i in range(7)]
-    # Total: 14 bits → 14 posedges de captura (bit_count 0..13)
 
     for i, bit in enumerate(bits):
         if i > 0:
-            await FallingEdge(dut.clk)   # Setup window: semiciclo bajo
+            await FallingEdge(dut.clk)   # Setup window (falling edge)
         # ui_in[0] = Bit_in, ui_in[3:1] = op[2:0], ui_in[7:4] = 0
         dut.ui_in.value = int(bit) | (op << 1)
-        await RisingEdge(dut.clk)        # Posedge: DUT captura bit_count=i
+        await RisingEdge(dut.clk)        # DUT captures on rising edge
 
-    # Limpiar Bit_in pero mantener op estable
+    # Clear Bit_in but hold opcode stable (required during S_CALC)
     dut.ui_in.value = op << 1
     done_seen  = False
     result_val = 0
 
+    # Poll for Done — up to 4 clock cycles
     for _ in range(4):
         await FallingEdge(dut.clk)
         await RisingEdge(dut.clk)
@@ -124,27 +131,30 @@ async def run_alu(dut, A, B, op):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TEST PRINCIPAL
+# MAIN TEST
 # ─────────────────────────────────────────────────────────────────────────────
 @cocotb.test()
 async def test_project(dut):
     """
-    Verificación completa de tt_um_alu7b — 20 casos de prueba.
-    Cubre ADD, AND, OR, XOR y SUB con casos de borde alineados con
-    la especificación del BOOTCAMP y serial_tb.v Bloques A-F.
-    Protocolo: 14 bits serial (7A + 7B), op paralelo en ui_in[3:1].
+    Full verification of tt_um_alu7b — 20 test cases.
+
+    Covers all 5 ALU operations (ADD, AND, OR, XOR, SUB) with both nominal
+    and boundary scenarios aligned with the Bootcamp specification and the
+    serial_tb.v Blocks A–F test set.
+
+    Protocol: 14 serial bits (7 for A + 7 for B), opcode parallel on ui_in[3:1].
     """
     dut._log.info("=" * 65)
     dut._log.info("  tt_um_alu7b — Bootcamp IEEE OpenSilicon / IEEE CASS UTP 2026")
-    dut._log.info("  Protocolo: 14 bits serial (7A + 7B), op paralelo ui_in[3:1]")
-    dut._log.info("  Reloj: %d ns (%d MHz)" % (CLK_PERIOD_NS, 1000 // CLK_PERIOD_NS))
+    dut._log.info("  Protocol: 14 serial bits (7A + 7B), opcode parallel ui_in[3:1]")
+    dut._log.info("  Clock: %d ns (%d MHz)" % (CLK_PERIOD_NS, 1000 // CLK_PERIOD_NS))
     dut._log.info("=" * 65)
 
-    # Iniciar reloj
+    # Start the clock
     clock = Clock(dut.clk, CLK_PERIOD_NS, unit="ns")
     cocotb.start_soon(clock.start())
 
-    # Reset inicial robusto
+    # Robust initial reset
     dut.ena.value    = 1
     dut.ui_in.value  = 0
     dut.uio_in.value = 0
@@ -153,127 +163,132 @@ async def test_project(dut):
     dut.rst_n.value = 1
     await FallingEdge(dut.clk)
 
-    dut._log.info("Reset inicial completado. Iniciando casos de prueba.")
+    dut._log.info("Initial reset complete. Starting test cases.")
     dut._log.info("-" * 65)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # TABLA DE PRUEBAS
-    # Formato: (A, B, op, expected, descripción)
+    # TEST CASE TABLE
+    # Format: (A, B, op, expected, description)
     #
-    # expected se calcula exactamente como lo hace el RTL (alu_7b.v):
-    #   ADD/SUB : operación de 8 bits con extensión de cero → & 0xFF
-    #   AND/OR/XOR : resultado de 7 bits con bit[7]=0       → & 0x7F
+    # Expected values computed exactly as the RTL (alu_7b.v):
+    #   ADD/SUB : 8-bit zero-extended arithmetic → & 0xFF
+    #   AND/OR/XOR : 7-bit result, bit[7] forced 0  → & 0x7F
     # ─────────────────────────────────────────────────────────────────────────
     test_cases = [
 
         # ══════════════════════════════════════════════════════════════════════
-        # BLOQUE A — ADD (suma, bit[7] = carry-out)
-        # Referencia RTL: 3'b000: result = {1'b0, A} + {1'b0, B}
+        # BLOCK A — ADDITION (op = 000)
+        # RTL reference: 3'b000: result = {1'b0, A} + {1'b0, B}
+        # result[7] = carry-out (1 when A + B >= 128)
         # ══════════════════════════════════════════════════════════════════════
         (20,  30,  OP_ADD,
-         (20  + 30)   & 0xFF,
-         "ADD  20 +  30 =  50   [sin carry]"),
+         (20  + 30)  & 0xFF,
+         "ADD  20 +  30 =  50   [normal, no carry]"),
 
         (10,  15,  OP_ADD,
-         (10  + 15)   & 0xFF,
-         "ADD  10 +  15 =  25   [sin carry]"),
+         (10  + 15)  & 0xFF,
+         "ADD  10 +  15 =  25   [normal, no carry]"),
 
         (100, 100, OP_ADD,
-         (100 + 100)  & 0xFF,
-         "ADD 100 + 100 = 0xC8  [carry bit[7]=1]"),
+         (100 + 100) & 0xFF,
+         "ADD 100 + 100 = 0xC8  [carry, result[7]=1]"),
 
         (0,   0,   OP_ADD,
          0,
-         "ADD   0 +   0 = 0x00  [caso cero]"),
+         "ADD   0 +   0 = 0x00  [zero case]"),
 
         (127, 1,   OP_ADD,
-         (127 + 1)    & 0xFF,
-         "ADD 127 +   1 = 0x80  [límite 7 bits, carry]"),
+         (127 + 1)   & 0xFF,
+         "ADD 127 +   1 = 0x80  [7-bit limit, carry]"),
 
         (127, 127, OP_ADD,
-         (127 + 127)  & 0xFF,
-         "ADD 127 + 127 = 0xFE  [ambos máximos, carry]"),
+         (127 + 127) & 0xFF,
+         "ADD 127 + 127 = 0xFE  [both max, carry]"),
 
         # ══════════════════════════════════════════════════════════════════════
-        # BLOQUE B — AND (lógico, bit[7] siempre 0)
-        # Referencia RTL: 3'b001: result = {1'b0, A & B}
+        # BLOCK B — BITWISE AND (op = 001)
+        # RTL reference: 3'b001: result = {1'b0, A & B}
+        # result[7] = 0 always
         # ══════════════════════════════════════════════════════════════════════
         (0b1010101, 0b1100110, OP_AND,
          (0b1010101 & 0b1100110) & 0x7F,
-         "AND 0x55 & 0x66 = 0x44 [máscara parcial]"),
+         "AND 0x55 & 0x66 = 0x44 [partial mask]"),
 
         (0x7F, 0x00, OP_AND,
          0x00,
-         "AND 0x7F & 0x00 = 0x00 [anulación]"),
+         "AND 0x7F & 0x00 = 0x00 [annihilation]"),
 
         (0x7F, 0x7F, OP_AND,
          0x7F,
-         "AND 0x7F & 0x7F = 0x7F [identidad]"),
+         "AND 0x7F & 0x7F = 0x7F [identity]"),
 
         (0b0101010, 0b1010101, OP_AND,
          0x00,
-         "AND 0x2A & 0x55 = 0x00 [patrón opuesto]"),
+         "AND 0x2A & 0x55 = 0x00 [crossed alternating, always 0]"),
 
         # ══════════════════════════════════════════════════════════════════════
-        # BLOQUE C — OR (lógico, bit[7] siempre 0)
-        # Referencia RTL: 3'b010: result = {1'b0, A | B}
+        # BLOCK C — BITWISE OR (op = 010)
+        # RTL reference: 3'b010: result = {1'b0, A | B}
+        # result[7] = 0 always
         # ══════════════════════════════════════════════════════════════════════
         (0b0101010, 0b0010101, OP_OR,
          (0b0101010 | 0b0010101) & 0x7F,
-         "OR  0x2A | 0x15 = 0x3F [complementos parciales]"),
+         "OR  0x2A | 0x15 = 0x3F [complementary patterns]"),
 
         (0x00, 0x7F, OP_OR,
          0x7F,
-         "OR  0x00 | 0x7F = 0x7F [identidad OR]"),
+         "OR  0x00 | 0x7F = 0x7F [OR identity]"),
 
         (0x7F, 0x7F, OP_OR,
          0x7F,
-         "OR  0x7F | 0x7F = 0x7F [ambos máximos]"),
+         "OR  0x7F | 0x7F = 0x7F [both operands at max]"),
 
         # ══════════════════════════════════════════════════════════════════════
-        # BLOQUE D — XOR (lógico, bit[7] siempre 0)
-        # Referencia RTL: 3'b011: result = {1'b0, A ^ B}
+        # BLOCK D — BITWISE XOR (op = 011)
+        # RTL reference: 3'b011: result = {1'b0, A ^ B}
+        # result[7] = 0 always
         # ══════════════════════════════════════════════════════════════════════
         (0b1111111, 0b1010101, OP_XOR,
          (0b1111111 ^ 0b1010101) & 0x7F,
-         "XOR 0x7F ^ 0x55 = 0x2A [diferencia]"),
+         "XOR 0x7F ^ 0x55 = 0x2A [difference]"),
 
         (0b1100110, 0b1100110, OP_XOR,
          0x00,
-         "XOR  A   ^  A   = 0x00 [autocancelación]"),
+         "XOR  A   ^  A   = 0x00 [self-cancellation]"),
 
         (0b1010101, 0b0101010, OP_XOR,
          (0b1010101 ^ 0b0101010) & 0x7F,
-         "XOR 0x55 ^ 0x2A = 0x7F [alternado, todos los bits]"),
+         "XOR 0x55 ^ 0x2A = 0x7F [alternating — all bits set]"),
 
         (0x7F, 0x00, OP_XOR,
          0x7F,
-         "XOR 0x7F ^ 0x00 = 0x7F [identidad XOR]"),
+         "XOR 0x7F ^ 0x00 = 0x7F [XOR identity]"),
 
         # ══════════════════════════════════════════════════════════════════════
-        # BLOQUE E — SUB (resta complemento a 2, bit[7] = borrow)
-        # Referencia RTL: 3'b100: result = {1'b0, A} - {1'b0, B}
+        # BLOCK E — SUBTRACTION (op = 100)
+        # RTL reference: 3'b100: result = {1'b0, A} - {1'b0, B}
+        # result[7] = borrow flag (1 when A < B; negative result in two's C)
         # ══════════════════════════════════════════════════════════════════════
         (50,  20,  OP_SUB,
-         (50  - 20)  & 0xFF,
-         "SUB  50 -  20 =  30   [resultado positivo, sin borrow]"),
+         (50  - 20) & 0xFF,
+         "SUB  50 -  20 =  30   [positive result, no borrow]"),
 
         (77,  77,  OP_SUB,
          0x00,
-         "SUB  77 -  77 = 0x00  [A igual a B]"),
+         "SUB  77 -  77 = 0x00  [A equals B — zero result]"),
 
         (10,  30,  OP_SUB,
-         (10  - 30)  & 0xFF,
-         "SUB  10 -  30 = 0xEC  [borrow, complemento a 2]"),
+         (10  - 30) & 0xFF,
+         "SUB  10 -  30 = 0xEC  [underflow, borrow, two's complement]"),
 
         (127, 0,   OP_SUB,
          0x7F,
-         "SUB 127 -   0 = 0x7F  [B=0, sin borrow]"),
+         "SUB 127 -   0 = 0x7F  [B = 0, no borrow]"),
 
     ]
 
     # ─────────────────────────────────────────────────────────────────────────
-    # EJECUCIÓN Y VERIFICACIÓN
+    # EXECUTION AND VERIFICATION LOOP
     # ─────────────────────────────────────────────────────────────────────────
     passed   = 0
     failed   = 0
@@ -299,16 +314,16 @@ async def test_project(dut):
             failures.append((idx + 1, desc, result, expected, done))
 
     # ─────────────────────────────────────────────────────────────────────────
-    # RESUMEN FINAL
+    # FINAL SUMMARY
     # ─────────────────────────────────────────────────────────────────────────
     dut._log.info("=" * 65)
     dut._log.info(
-        "RESUMEN: %d PASS  /  %d FAIL  (total %d casos)"
+        "SUMMARY: %d PASS  /  %d FAIL  (total %d cases)"
         % (passed, failed, len(test_cases))
     )
 
     if failures:
-        dut._log.error("CASOS FALLIDOS:")
+        dut._log.error("FAILED CASES:")
         for num, desc, got, exp, d in failures:
             dut._log.error(
                 "  [%02d] %s → got=0x%02X  exp=0x%02X  Done=%s  diff_bits=0x%02X"
@@ -318,17 +333,17 @@ async def test_project(dut):
     dut._log.info("=" * 65)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # ASERCIONES INDIVIDUALES
+    # INDIVIDUAL ASSERTIONS (reported by pytest in results.xml)
     # ─────────────────────────────────────────────────────────────────────────
     for num, desc, got, exp, d in failures:
         assert d, (
-            "[%02d] %s: uio_out[0] (Done) nunca se activó. "
-            "Verificar: 14 bits transmitidos, protocolo LSB-first, "
-            "transición S_RECV→S_CALC en bit_count==CNT_B_END(13)."
+            "[%02d] %s: uio_out[0] (Done) was never asserted. "
+            "Check: 14 bits transmitted, LSB-first protocol, "
+            "FSM transition S_RECV → S_CALC at bit_count == CNT_B_END (13)."
             % (num, desc)
         )
         assert got == exp, (
-            "[%02d] %s: resultado incorrecto. "
-            "got=0x%02X  expected=0x%02X  bits_en_error=0x%02X"
+            "[%02d] %s: incorrect result. "
+            "got=0x%02X  expected=0x%02X  error_bits=0x%02X"
             % (num, desc, got, exp, got ^ exp)
         )
