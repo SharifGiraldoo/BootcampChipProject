@@ -2,7 +2,7 @@
 
 **Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026**  
 Shuttle: SKY26a · PDK: sky130A (130 nm) · Tile: 1×1  
-**Author:** Sharif Obando · Discord: `sharif_g230`
+**Author:** Sharif Obando 
 
 ---
 
