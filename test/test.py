@@ -17,22 +17,7 @@ SERIAL PROTOCOL — tt_um_alu7b
   Rising edge 15        → S_CALC: reg_result ← alu_out, done_reg = 1 (1 cycle)
 
   Opcode: parallel input on ui_in[3:1] = op[2:0], stable throughout the
-  operation.  It does NOT need to be serialised through Bit_in.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TIMING FIX (vs. original test.py)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Original run_alu had "if i > 0: await FallingEdge(dut.clk)" before setting
-  ui_in, which skipped the falling-edge setup guard for the first bit (i=0).
-  In cocotb 2.0.1, assigning ui_in and immediately awaiting RisingEdge can
-  create a delta-cycle race where the DUT samples Bit_in = 0 instead of A[0]
-  on that first rising edge, effectively losing the LSB of operand A.
-
-  Fix applied: reset_dut no longer ends with await FallingEdge (the caller
-  run_alu will do that), and run_alu always awaits FallingEdge BEFORE driving
-  ui_in for every bit (including i=0).  This guarantees correct setup time
-  for all 14 serial bits and is compatible with serial_alu_ctrl.v (CNT=6,13).
+  operation. It does NOT need to be serialised through Bit_in.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OPERATION TABLE (reference: alu_7b.v)
@@ -70,28 +55,22 @@ CLK_PERIOD_NS = 20   # 20 ns → 50 MHz (TinyTapeout digital I/O maximum)
 # HELPER: reset_dut
 #
 # Applies synchronous active-low reset to the DUT.
-# Held for 5 clock cycles for robust initialisation.
-#
-# IMPORTANT TIMING NOTE:
-#   This function does NOT await FallingEdge at the end.  The caller (run_alu)
-#   is responsible for the first FallingEdge before presenting the first bit.
-#   This avoids an extra rising edge between rst_n=1 and the first data bit,
-#   which would advance bit_count before any data arrives and corrupt A[0].
+# rst_n = 0 takes effect on the next rising edge (synchronous reset in RTL).
+# Held for 5 clock cycles for robust initialisation. Released on a falling
+# edge so the caller's next action aligns with the DUT's first S_RECV cycle.
 #
 # Postcondition:
 #   - FSM in S_RECV, bit_count = 0, reg_A = 0, reg_B = 0, reg_result = 0
-#   - rst_n = 1; clock can be at any phase (run_alu will align via FallingEdge)
+#   - Control returned on a falling edge — next event is a rising edge
 # ─────────────────────────────────────────────────────────────────────────────
 async def reset_dut(dut):
-    """Synchronous active-low reset.  Does NOT end on a falling edge."""
+    """Synchronous active-low reset. Returns on a falling edge."""
     dut.rst_n.value  = 0
     dut.ui_in.value  = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
-    # Control returns immediately after rst_n=1, without an extra rising edge.
-    # The next await in run_alu will be FallingEdge, which guarantees proper
-    # setup time for the first serial bit (A[0]).
+    await FallingEdge(dut.clk)   # Align: next event will be a rising edge
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -99,18 +78,19 @@ async def reset_dut(dut):
 #
 # Transmits 14 serial bits (7 for A, 7 for B), LSB first, and polls for Done.
 #
-# Timing protocol per bit (ALL 14 bits, including bit 0):
-#   1. await FallingEdge  — setup window; ui_in is driven stable here
-#   2. drive ui_in        — Bit_in = bit[i], op[2:0] = opcode
-#   3. await RisingEdge   — DUT captures on the rising edge
+# Precondition:
+#   - DUT in S_RECV (after reset_dut), control on a falling edge
 #
-# This uniform protocol ensures correct setup time for every bit, including
-# the first one (i=0).  The original code had "if i > 0: await FallingEdge",
-# which could cause a delta-cycle race on i=0 that corrupted A[0].
+# Timing per bit:
+#   bit[0]: present data → RisingEdge (no leading FallingEdge — already there)
+#   bit[i > 0]: FallingEdge → present data → RisingEdge
 #
-# After 14 rising edges:
-#   bit_count == 13 == CNT_B_END → FSM transitions to S_CALC on the NEXT
-#   rising edge (the first poll edge).  Done pulses for exactly 1 cycle.
+# After 14 rising edges (bit_count reaches CNT_B_END = 13), FSM → S_CALC.
+# On the 15th rising edge (S_CALC), result is latched and Done is asserted
+# for exactly one cycle.
+#
+# Done is polled for up to 4 FallingEdge→RisingEdge pairs. Under normal
+# conditions Done appears on the first iteration (15th rising edge total).
 #
 # Returns:
 #   result (int): captured value of uo_out when Done was observed
@@ -120,25 +100,25 @@ async def run_alu(dut, A, B, op):
     """
     Transmit 14 serial bits (A [6:0] + B [6:0], LSB first).
     Opcode is applied on ui_in[3:1] as a stable parallel input.
-    Always awaits FallingEdge before each bit (including bit 0).
     Returns (result: int, done_seen: bool).
     """
     # Build the 14-bit serial sequence: A LSB-first then B LSB-first
     bits  = [(A >> i) & 1 for i in range(7)]
     bits += [(B >> i) & 1 for i in range(7)]
 
-    for bit in bits:
-        await FallingEdge(dut.clk)           # Always: setup window first
+    for i, bit in enumerate(bits):
+        if i > 0:
+            await FallingEdge(dut.clk)   # Setup window (falling edge)
+        # ui_in[0] = Bit_in, ui_in[3:1] = op[2:0], ui_in[7:4] = 0
         dut.ui_in.value = int(bit) | (op << 1)
-        await RisingEdge(dut.clk)            # DUT captures on rising edge
+        await RisingEdge(dut.clk)        # DUT captures on rising edge
 
-    # Clear Bit_in; hold opcode stable during S_CALC
+    # Clear Bit_in but hold opcode stable (required during S_CALC)
     dut.ui_in.value = op << 1
     done_seen  = False
     result_val = 0
 
     # Poll for Done — up to 4 clock cycles
-    # S_CALC fires on the first rising edge after bit 13 is captured.
     for _ in range(4):
         await FallingEdge(dut.clk)
         await RisingEdge(dut.clk)
@@ -156,13 +136,13 @@ async def run_alu(dut, A, B, op):
 @cocotb.test()
 async def test_project(dut):
     """
-    Full verification of tt_um_alu7b — 21 test cases.
+    Full verification of tt_um_alu7b — 20 test cases.
 
     Covers all 5 ALU operations (ADD, AND, OR, XOR, SUB) with both nominal
-    and boundary scenarios aligned with the Bootcamp specification.
+    and boundary scenarios aligned with the Bootcamp specification and the
+    serial_tb.v Blocks A–F test set.
 
-    Protocol: 14 serial bits (7 for A + 7 for B), opcode parallel on
-    ui_in[3:1].  All bits are presented on falling edges (setup-time safe).
+    Protocol: 14 serial bits (7 for A + 7 for B), opcode parallel on ui_in[3:1].
     """
     dut._log.info("=" * 65)
     dut._log.info("  tt_um_alu7b — Bootcamp IEEE OpenSilicon / IEEE CASS UTP 2026")
@@ -181,7 +161,7 @@ async def test_project(dut):
     dut.rst_n.value  = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
-    # No FallingEdge here — run_alu will provide it before the first bit.
+    await FallingEdge(dut.clk)
 
     dut._log.info("Initial reset complete. Starting test cases.")
     dut._log.info("-" * 65)
