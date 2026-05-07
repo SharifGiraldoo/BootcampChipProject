@@ -61,23 +61,6 @@ S_RECV ──(bit_count == 13)──► S_CALC ──(1 cycle)──► S_DONE
 
 ---
 
-## Project Views
-
-![Project Block Diagram](project.png)
-
----
-
-![2D Layout Preview](alu7bPreview2d.png)
-
----
-
-![3D Layout Preview](alu3dPreview.png)
-
----
-
-![KLayout Physical Verification Run](klayoutRun.png)
-
----
 
 ## Pin Map
 
