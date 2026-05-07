@@ -1,6 +1,6 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# 7-bit ALU — Serial Input / Parallel Output
+# IEEE 7-bit ALU — Serial Input / Parallel Output
 
 **Bootcamp IC Design & Fabrication — IEEE OpenSilicon / IEEE CASS UTP 2026**  
 Shuttle: SKY26a · PDK: sky130A (130 nm) · Tile: 1×1  
